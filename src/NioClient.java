@@ -1,6 +1,9 @@
 import java.io.IOException;
+import java.net.ConnectException;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 public class NioClient {
@@ -48,6 +51,8 @@ public class NioClient {
                 String message = scanner.nextLine();
                 sendMessage(clientChannel, message);
             }
+        } catch (NoSuchElementException e) {
+            System.out.println("Disconnected by user");
         } finally {
             // Ctrl+C
             System.out.println("Closing socket.");
@@ -56,20 +61,35 @@ public class NioClient {
     }
 
     private static void handleConnect(SocketChannel clientChannel, Selector selector) throws IOException {
-        if (clientChannel.finishConnect()) {
-            clientChannel.register(selector, SelectionKey.OP_READ);
-            System.out.println("Connected to the server.");
+        try {
+            if (clientChannel.finishConnect()) {
+                clientChannel.register(selector, SelectionKey.OP_READ);
+                System.out.println("Connected to the server.");
+            }
+        } catch (ConnectException e) {
+            System.out.println("Couldn't connect to the server. Aborting...");
+            System.exit(1);
         }
     }
 
     private static void handleRead(SocketChannel clientChannel) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(256);
-        int bytesRead = clientChannel.read(buffer);
+        try {
+            int bytesRead = clientChannel.read(buffer);
 
-        if (bytesRead > 0) {
-            buffer.flip();
-            String message = new String(buffer.array(), 0, buffer.limit());
-            System.out.println("Received: " + message);
+            if (bytesRead > 0) {
+                buffer.flip();
+                String message = new String(buffer.array(), 0, buffer.limit());
+                System.out.println("Received: " + message);
+            }
+
+            if (bytesRead == -1) {
+                System.out.println("Server shutdown");
+                System.exit(-1);
+            }
+        } catch (SocketException e) {
+            System.out.println("Server shutdown");
+            System.exit(-1);
         }
     }
 
