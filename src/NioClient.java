@@ -84,10 +84,12 @@ public class NioClient {
             }
 
             if (bytesRead == -1) {
+                // Gracefully shutdown
                 System.out.println("Server shutdown");
                 System.exit(-1);
             }
         } catch (SocketException e) {
+            // Unexpected shutdown
             System.out.println("Server shutdown");
             System.exit(-1);
         }

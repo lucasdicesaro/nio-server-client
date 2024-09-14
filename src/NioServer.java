@@ -55,10 +55,16 @@ public class NioServer {
     }
 
     private void closeConnection(SocketChannel clientChannel) throws IOException {
-        clients.removeIf(c -> c.getSocketChannel().equals(clientChannel));
+        // clients.removeIf(c -> c.getSocketChannel().equals(clientChannel));
+        Client client = clients.stream()
+                .filter(c -> c.getSocketChannel().equals(clientChannel))
+                .findAny()
+                .orElse(null);
+
         System.out.println("Client disconnected: " + clientChannel.getRemoteAddress());
         clientChannel.close();
-        broadcastMessage("A client has left the chat.");
+        clients.remove(client);
+        broadcastMessage(client.getName() + " has left the chat.");
     }
 
     private void handleClientMessage(SelectionKey key) throws IOException {
@@ -80,10 +86,9 @@ public class NioServer {
 
         buffer.flip();
         String message = new String(buffer.array(), 0, buffer.limit()).trim();
-        if (message.equalsIgnoreCase("/list_clients")) {
+        if (message.equalsIgnoreCase(Commands.LIST_CLIENTS)) {
             listClients(clientChannel);
-        } else if (message.startsWith("/name ")) {
-            message = message.replace("/name ", "");
+        } else if (message.startsWith(Commands.CHANGE_NAME)) {
             changeName(message, clientChannel);
         } else {
             System.out.println("Received message: " + message);
@@ -106,19 +111,27 @@ public class NioServer {
             clientsList.append(client.getName() + " " + client.getSocketChannel().getRemoteAddress()).append("\n");
         }
 
-        ByteBuffer buffer = ByteBuffer.wrap(clientsList.toString().getBytes());
-        requestingClient.write(buffer);
+        sendMessage(requestingClient, clientsList.toString());
     }
 
-    private void changeName(String name, SocketChannel requestingClient) throws IOException {
+    private void changeName(String message, SocketChannel requestingClient) throws IOException {
         Client client = clients.stream()
                 .filter(c -> c.getSocketChannel().equals(requestingClient))
                 .findAny()
                 .orElse(null);
 
+        String name = removeCommandFromMessage(Commands.CHANGE_NAME, message);
         client.setName(name);
-        ByteBuffer buffer = ByteBuffer.wrap(("Name " + name + " applied").getBytes());
+        sendMessage(requestingClient, "Name " + name + " applied");
+    }
+
+    private void sendMessage(SocketChannel requestingClient, String message) throws IOException {
+        ByteBuffer buffer = ByteBuffer.wrap(message.getBytes());
         requestingClient.write(buffer);
+    }
+
+    private String removeCommandFromMessage(String command, String message) {
+        return message.replace(command, "");
     }
 
     private void shutdown() {
@@ -139,9 +152,9 @@ public class NioServer {
             }
 
             // Close the selector
-            if (selector != null && selector.isOpen()) {
-                selector.close();
-            }
+            // if (selector != null && selector.isOpen()) {
+            // selector.close();
+            // }
         } catch (Exception e) {
             // The server is shutdown. Ignoring errors.
             e.printStackTrace();
