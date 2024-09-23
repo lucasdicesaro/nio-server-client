@@ -47,6 +47,7 @@ public class NioClient {
 
         // Send messages from the keyboard
         try (Scanner scanner = new Scanner(System.in)) {
+            showUsage();
             while (true) {
                 String message = scanner.nextLine();
                 sendMessage(clientChannel, message);
@@ -98,5 +99,12 @@ public class NioClient {
     private static void sendMessage(SocketChannel clientChannel, String message) throws IOException {
         ByteBuffer buffer = ByteBuffer.wrap(message.getBytes());
         clientChannel.write(buffer);
+    }
+
+    protected static void showUsage() {
+        System.out.print("Opciones:\n" +
+                Commands.CHANGE_NAME + " <name> - Cambiar el nombre.\n" +
+                Commands.LIST_CLIENTS + " - Muestra la lista de clientes conectados.\n" +
+                "> ");
     }
 }
